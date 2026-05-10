@@ -11,6 +11,7 @@ struct MainView: View {
     #endif
 
     private var isCompactPhone: Bool {
+
         #if os(iOS)
         return sizeClass == .compact
         #else
@@ -19,94 +20,318 @@ struct MainView: View {
     }
 
     var body: some View {
+
         Group {
+
             #if os(iOS)
+
             if isCompactPhone {
-                tabLayout
+
+                modernTabLayout
+
             } else {
-                splitViewLayout
+
+                modernSidebarLayout
             }
+
             #else
-            splitViewLayout
+
+            modernSidebarLayout
+
             #endif
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
+        .preferredColorScheme(.dark)
     }
 }
 
-// MARK: - iPhone Tab Layout
+// MARK: - Mobile Layout
 
 extension MainView {
 
-    var tabLayout: some View {
+    var modernTabLayout: some View {
 
-        TabView(selection: $state.selectedTab) {
+        ZStack(alignment: .bottom) {
 
-            NavigationStack {
+            backgroundLayer
+
+            TabView(selection: $state.selectedTab) {
+
                 DashboardView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
-            }
-            .tabItem {
-                Label("Overview", systemImage: "square.grid.2x2.fill")
-            }
-            .tag(0)
+                    .tag(0)
 
-            NavigationStack {
                 ExplorerView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
-            }
-            .tabItem {
-                Label("Explorer", systemImage: "folder.fill")
-            }
-            .tag(1)
+                    .tag(1)
 
-            NavigationStack {
                 SettingsView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
+                    .tag(2)
             }
-            .tabItem {
-                Label("Settings", systemImage: "gearshape.fill")
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            // MARK: Floating Bottom Navigation
+
+            HStack(spacing: 8) {
+
+                bottomTabButton(
+                    title: "Overview",
+                    icon: "square.grid.2x2.fill",
+                    tab: 0
+                )
+
+                bottomTabButton(
+                    title: "Explorer",
+                    icon: "folder.fill",
+                    tab: 1
+                )
+
+                bottomTabButton(
+                    title: "Settings",
+                    icon: "gearshape.fill",
+                    tab: 2
+                )
             }
-            .tag(2)
+            .padding(10)
+            .background(
+
+                RoundedRectangle(cornerRadius: 26)
+                    .fill(Color.black.opacity(0.72))
+
+                    .overlay(
+
+                        RoundedRectangle(cornerRadius: 26)
+                            .stroke(
+                                Color.white.opacity(0.06),
+                                lineWidth: 1
+                            )
+                    )
+            )
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .tint(.blue)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
     }
 }
 
-// MARK: - iPad / macOS Split Layout
+// MARK: - Sidebar Layout
 
 extension MainView {
 
-    var splitViewLayout: some View {
+    var modernSidebarLayout: some View {
 
         NavigationSplitView {
-            SidebarView()
+
+            modernSidebar
+
         } detail: {
-            NavigationStack {
-                contentArea
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .background(Color.black)
+
+            ZStack {
+
+                backgroundLayer
+
+                NavigationStack {
+
+                    ScrollView {
+
+                        contentArea
+                            .padding(24)
+                    }
                     .toolbar {
-                        ToolbarItem(placement: .primaryAction) {
+
+                        ToolbarItemGroup(
+                            placement: .primaryAction
+                        ) {
+
                             Button {
-                                Task { await state.loadFiles() }
+
+                                Task {
+                                    await state.loadFiles()
+                                }
+
                             } label: {
-                                Image(systemName: "arrow.clockwise")
+
+                                Image(
+                                    systemName:
+                                        "arrow.clockwise"
+                                )
+                            }
+
+                            Button {
+
+                            } label: {
+
+                                Image(
+                                    systemName:
+                                        "bell.badge.fill"
+                                )
                             }
                         }
                     }
-                    .navigationTitle("Bucket: \(state.bucketName)")
+                    .navigationTitle(
+                        state.bucketName.isEmpty
+                        ? "MinIO Dashboard"
+                        : state.bucketName
+                    )
+                }
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
+    }
+}
+
+// MARK: - Sidebar
+
+extension MainView {
+
+    var modernSidebar: some View {
+
+        ZStack {
+
+            Color(hex: "#0F172A")
+                .ignoresSafeArea()
+
+            VStack(
+                alignment: .leading,
+                spacing: 26
+            ) {
+
+                // MARK: Logo
+
+                HStack(spacing: 14) {
+
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(
+
+                            LinearGradient(
+                                colors: [
+                                    .blue,
+                                    .cyan
+                                ],
+                                startPoint: .topLeading,
+                                endPoint:
+                                    .bottomTrailing
+                            )
+                        )
+                        .frame(width: 54, height: 54)
+
+                        .overlay(
+
+                            Image(
+                                systemName:
+                                    "externaldrive.fill"
+                            )
+                            .font(.title2)
+                            .foregroundColor(.white)
+                        )
+
+                    VStack(
+                        alignment: .leading,
+                        spacing: 4
+                    ) {
+
+                        Text("MinIO")
+                            .font(
+                                .system(
+                                    size: 24,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+
+                        Text("Storage Platform")
+                            .font(.caption)
+                            .foregroundColor(
+                                .secondary
+                            )
+                    }
+                }
+                .padding(.horizontal)
+
+                // MARK: Menu
+
+                VStack(spacing: 12) {
+
+                    sidebarButton(
+                        title: "Overview",
+                        icon:
+                            "square.grid.2x2.fill",
+                        tab: 0
+                    )
+
+                    sidebarButton(
+                        title: "Explorer",
+                        icon: "folder.fill",
+                        tab: 1
+                    )
+
+                    sidebarButton(
+                        title: "Settings",
+                        icon:
+                            "gearshape.fill",
+                        tab: 2
+                    )
+                }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // MARK: Storage Card
+
+                VStack(
+                    alignment: .leading,
+                    spacing: 12
+                ) {
+
+                    HStack {
+
+                        Circle()
+                            .fill(
+                                Color.blue.opacity(
+                                    0.2
+                                )
+                            )
+                            .frame(
+                                width: 42,
+                                height: 42
+                            )
+
+                            .overlay(
+
+                                Image(
+                                    systemName:
+                                        "externaldrive.fill"
+                                )
+                                .foregroundColor(
+                                    .blue
+                                )
+                            )
+
+                        Spacer()
+                    }
+
+                    Text(state.bucketName)
+                        .fontWeight(.bold)
+
+                    Text(
+                        AppState.formatSize(
+                            state.totalSize
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(
+
+                    RoundedRectangle(
+                        cornerRadius: 22
+                    )
+                    .fill(
+                        Color.white.opacity(0.05)
+                    )
+                )
+                .padding()
+            }
+            .padding(.top, 20)
+        }
+        .frame(minWidth: 280)
     }
 }
 
@@ -116,110 +341,164 @@ extension MainView {
 
     @ViewBuilder
     var contentArea: some View {
+
         switch state.selectedTab {
+
         case 0:
+
             DashboardView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
         case 1:
+
             ExplorerView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
         case 2:
+
             SettingsView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
         default:
+
             DashboardView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }
 
-// MARK: - Sidebar
+// MARK: - Sidebar Button
 
-struct SidebarView: View {
-
-    @EnvironmentObject var state: AppState
-
-    var body: some View {
-
-        List {
-            Section("Navigation") {
-                sidebarButton(title: "Overview", icon: "square.grid.2x2.fill", tab: 0)
-                sidebarButton(title: "Explorer", icon: "folder.fill", tab: 1)
-                sidebarButton(title: "Settings", icon: "gearshape.fill", tab: 2)
-            }
-
-            Section("Storage") {
-                HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: "externaldrive.fill")
-                        .foregroundColor(.blue)
-                        .font(.title3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(state.bucketName)
-                            .font(.caption.bold())
-                            .lineLimit(1)
-                        Text(AppState.formatSize(state.totalSize))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-                }
-                .padding(.vertical, 4)
-            }
-        }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(Color(.systemBackground))
-
-        #if os(macOS)
-        .frame(minWidth: 240)
-        #endif
-    }
-}
-
-extension SidebarView {
+extension MainView {
 
     @ViewBuilder
-    func sidebarButton(title: String, icon: String, tab: Int) -> some View {
+    func sidebarButton(
+        title: String,
+        icon: String,
+        tab: Int
+    ) -> some View {
 
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+
+            withAnimation(.easeInOut) {
+
                 state.selectedTab = tab
             }
+
         } label: {
-            HStack(spacing: 12) {
+
+            HStack(spacing: 14) {
+
                 Image(systemName: icon)
                     .frame(width: 20)
+
                 Text(title)
+                    .fontWeight(.medium)
+
                 Spacer()
+
                 if state.selectedTab == tab {
-                    Image(systemName: "checkmark")
-                        .foregroundColor(.blue)
-                        .font(.caption.bold())
+
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.horizontal, 18)
+            .frame(height: 52)
+
+            .background(
+
+                RoundedRectangle(
+                    cornerRadius: 16
+                )
+                .fill(
+                    state.selectedTab == tab
+                    ? Color.blue.opacity(0.18)
+                    : Color.clear
+                )
+            )
+            .foregroundColor(
+                state.selectedTab == tab
+                ? .blue
+                : .white
+            )
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Preview
+// MARK: - Bottom Tab Button
 
-#Preview("iPhone 13 Pro") {
-    MainView()
-        .environmentObject(AppState())
-        .previewDevice("iPhone 13 Pro MAX")
+extension MainView {
+
+    @ViewBuilder
+    func bottomTabButton(
+        title: String,
+        icon: String,
+        tab: Int
+    ) -> some View {
+
+        Button {
+
+            withAnimation(.easeInOut) {
+
+                state.selectedTab = tab
+            }
+
+        } label: {
+
+            VStack(spacing: 6) {
+
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundColor(
+                state.selectedTab == tab
+                ? .blue
+                : .white.opacity(0.7)
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+    }
 }
 
-#Preview("iPad Pro") {
+// MARK: - Background
+
+extension MainView {
+
+    var backgroundLayer: some View {
+
+        LinearGradient(
+            colors: [
+                Color(hex: "#020617"),
+                Color(hex: "#0F172A"),
+                Color(hex: "#111827")
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+    }
+}
+
+// MARK: - Preview
+
+#Preview("iPhone") {
+
     MainView()
         .environmentObject(AppState())
-        .previewDevice("iPad Pro (11-inch)")
+}
+
+#Preview("iPad") {
+
+    MainView()
+        .environmentObject(AppState())
 }
 
 #Preview("Mac") {
+
     MainView()
         .environmentObject(AppState())
 }

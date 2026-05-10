@@ -35,7 +35,6 @@ struct ExplorerView: View {
     @State private var objectToDelete: MinIOObject? = nil
     @State private var showingDeleteAlert = false
 
-    // ✅ QuickLook state
     @State private var previewURL: URL? = nil
     @State private var isLoadingPreview = false
     @State private var previewObj: MinIOObject? = nil
@@ -51,16 +50,10 @@ struct ExplorerView: View {
             HStack(spacing: isCompactPhone ? 8 : 12) {
 
                 Button {
-                    Task {
-                        await state.goBack()
-                    }
+                    Task { await state.goBack() }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(
-                            isCompactPhone
-                            ? .body.bold()
-                            : .title3.bold()
-                        )
+                        .font(isCompactPhone ? .body.bold() : .title3.bold())
                 }
                 .disabled(state.currentPath.isEmpty)
 
@@ -81,16 +74,12 @@ struct ExplorerView: View {
 
                 Spacer(minLength: 4)
 
-                Button {
-                    showingNewFolderSheet = true
-                } label: {
+                Button { showingNewFolderSheet = true } label: {
                     Image(systemName: "folder.badge.plus")
                 }
                 .buttonStyle(.bordered)
 
-                Button {
-                    showingFilePicker = true
-                } label: {
+                Button { showingFilePicker = true } label: {
                     Image(systemName: "arrow.up.doc")
                 }
                 .buttonStyle(.borderedProminent)
@@ -116,23 +105,15 @@ struct ExplorerView: View {
                         }
 
                         Button(crumb.label) {
-                            Task {
-                                await state.navigateTo(crumb.path)
-                            }
+                            Task { await state.navigateTo(crumb.path) }
                         }
                         #if os(macOS)
                         .buttonStyle(.plain)
                         #endif
                         .foregroundColor(
-                            idx == state.breadcrumbs.count - 1
-                            ? .primary
-                            : .blue
+                            idx == state.breadcrumbs.count - 1 ? .primary : .blue
                         )
-                        .font(
-                            isCompactPhone
-                            ? .caption
-                            : .subheadline
-                        )
+                        .font(isCompactPhone ? .caption : .subheadline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     }
@@ -168,17 +149,12 @@ struct ExplorerView: View {
                             isCompactPhone: isCompactPhone,
                             isLoadingPreview: previewObj?.id == obj.id && isLoadingPreview
                         ) {
-
                             if obj.isDirectory {
                                 Task { await state.navigateTo(obj.name) }
                             }
-
                         } onDownload: {
-
                             openPreview(obj)
-
                         } onDelete: {
-
                             objectToDelete = obj
                             showingDeleteAlert = true
                         }
@@ -237,7 +213,7 @@ struct ExplorerView: View {
         .dynamicTypeSize(.small ... .large)
 
         // MARK: QuickLook Preview
-        // ✅ iOS: ใช้ .quickLookPreview — เปิดใน sheet ในแอปเลย ไม่ออก Safari
+
         #if os(iOS)
         .quickLookPreview($previewURL)
         #endif
@@ -316,8 +292,6 @@ struct ExplorerView: View {
 
     // MARK: Open Preview (QuickLook)
 
-    // ✅ Download ไฟล์ไปไว้ใน temp ก่อน แล้วเปิด QuickLook ในแอป
-    // QuickLook ต้องการ local file URL — ไม่รับ remote URL โดยตรง
     private func openPreview(_ obj: MinIOObject) {
         Task {
             guard let remoteURL = await state.presignedURL(for: obj.name) else { return }
@@ -327,21 +301,17 @@ struct ExplorerView: View {
             isLoadingPreview = true
 
             do {
-                // Download ไฟล์ไปไว้ใน temp directory
                 let (tmpURL, _) = try await URLSession.shared.download(from: remoteURL)
-
-                // ตั้งชื่อไฟล์ให้ถูก extension — QuickLook ใช้ extension ในการเลือก renderer
                 let fileName = obj.displayName
                 let destURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent(fileName)
 
-                // ลบไฟล์เก่าถ้ามีอยู่
                 try? FileManager.default.removeItem(at: destURL)
                 try FileManager.default.moveItem(at: tmpURL, to: destURL)
 
                 isLoadingPreview = false
                 previewObj = nil
-                previewURL = destURL  // ✅ set ตรงนี้ → .quickLookPreview เปิดเอง
+                previewURL = destURL
 
             } catch {
                 isLoadingPreview = false
@@ -350,7 +320,6 @@ struct ExplorerView: View {
             }
 
             #else
-            // macOS — เปิดใน Quick Look ผ่าน NSWorkspace
             NSWorkspace.shared.open(remoteURL)
             #endif
         }
@@ -363,13 +332,35 @@ struct FileRow: View {
 
     let obj: MinIOObject
     let isCompactPhone: Bool
-    let isLoadingPreview: Bool  // ✅ แสดง spinner ระหว่าง download
+    let isLoadingPreview: Bool
 
     let onTap: () -> Void
     let onDownload: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovered = false
+
+    // ดึง extension จากชื่อไฟล์
+    private var fileExt: String {
+        obj.name
+            .split(separator: ".")
+            .last
+            .map(String.init)?
+            .lowercased() ?? ""
+    }
+
+    // ✅ สีจาก AppState.colorForExtension — single source of truth
+    private var iconColor: Color {
+        if obj.isDirectory {
+            return .orange
+        }
+        return AppState.colorForExtension(fileExt)
+    }
+
+    // ✅ background tint จากสีเดียวกัน opacity ต่ำ
+    private var iconBackground: Color {
+        iconColor.opacity(0.15)
+    }
 
     var body: some View {
 
@@ -380,11 +371,7 @@ struct FileRow: View {
             ZStack {
 
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        obj.isDirectory
-                        ? Color.yellow.opacity(0.15)
-                        : Color.blue.opacity(0.10)
-                    )
+                    .fill(iconBackground)
                     .frame(
                         width: isCompactPhone ? 36 : 42,
                         height: isCompactPhone ? 36 : 42
@@ -395,13 +382,12 @@ struct FileRow: View {
                         .scaleEffect(0.7)
                 } else {
                     Image(
-                        systemName:
-                            obj.isDirectory
+                        systemName: obj.isDirectory
                             ? "folder.fill"
-                            : fileIcon(for: obj.name)
+                            : fileIcon(for: fileExt)
                     )
                     .font(.system(size: isCompactPhone ? 16 : 18))
-                    .foregroundColor(obj.isDirectory ? .orange : .blue)
+                    .foregroundColor(iconColor)
                 }
             }
 
@@ -421,14 +407,28 @@ struct FileRow: View {
                     .truncationMode(.middle)
                     .minimumScaleFactor(0.8)
 
-                Text(
-                    obj.isDirectory
-                    ? "Directory"
-                    : subtitleText
-                )
-                .font(isCompactPhone ? .caption2 : .caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
+                HStack(spacing: 4) {
+
+                    // ✅ แสดง badge สีของประเภทไฟล์
+                    if !obj.isDirectory {
+                        Text(fileExt.isEmpty ? "file" : fileExt.uppercased())
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(iconColor)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(iconColor.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+
+                    Text(
+                        obj.isDirectory
+                            ? "Directory"
+                            : subtitleText
+                    )
+                    .font(isCompactPhone ? .caption2 : .caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 4)
@@ -441,6 +441,7 @@ struct FileRow: View {
                     if !obj.isDirectory {
                         Button(action: onDownload) {
                             Image(systemName: "eye.circle")
+                                .foregroundColor(iconColor)
                         }
                         .buttonStyle(.plain)
                     }
@@ -474,26 +475,25 @@ struct FileRow: View {
     }
 
     // MARK: File Icon
+    // ✅ ใช้ extension เพื่อเลือก SF Symbol — สีมาจาก AppState.colorForExtension แยกต่างหาก
 
-    private func fileIcon(for name: String) -> String {
-        let ext = name
-            .split(separator: ".")
-            .last
-            .map(String.init)?
-            .lowercased() ?? ""
-
+    private func fileIcon(for ext: String) -> String {
         switch ext {
-        case "pdf":             return "doc.richtext.fill"
-        case "png", "jpg",
-             "jpeg", "gif",
-             "webp":            return "photo.fill"
-        case "mp4", "mov",
-             "avi":             return "film.fill"
-        case "zip", "rar":      return "archivebox.fill"
-        case "txt":             return "doc.text.fill"
-        case "csv":             return "tablecells.fill"
-        case "json":            return "curlybraces"
-        default:                return "doc.fill"
+        case "pdf":                         return "doc.richtext.fill"
+        case "doc", "docx":                 return "doc.fill"
+        case "xls", "xlsx", "csv":          return "tablecells.fill"
+        case "ppt", "pptx":                 return "rectangle.on.rectangle.angled.fill"
+        case "png", "jpg", "jpeg",
+             "heic", "gif", "webp":         return "photo.fill"
+        case "mp4", "mov", "avi", "mkv":    return "film.fill"
+        case "mp3", "wav", "aac", "flac":   return "music.note"
+        case "zip", "rar", "7z",
+             "tar", "gz":                   return "archivebox.fill"
+        case "swift", "py", "js", "ts",
+             "json", "html", "css",
+             "java", "kt":                  return "curlybraces"
+        case "txt", "md", "rtf":            return "doc.text.fill"
+        default:                            return "doc.fill"
         }
     }
 }
